@@ -1,4 +1,4 @@
-const z = require('zod');
+import z from 'zod';
 
 const movieSchema = z.object({
   title: z.string({
@@ -14,12 +14,10 @@ const movieSchema = z.object({
   )
 })
 
-function validateMovie(object){
+export function validateMovie(object){
   return movieSchema.safeParse(object)
 }
 
-function validatePartialMovie(object){
+export function validatePartialMovie(object){
   return movieSchema.partial().safeParse(object) // partial -> si la propiedad existe la valida, si no, la considera opcional y no hace nada
 }
-
-module.exports = { validateMovie, validatePartialMovie }

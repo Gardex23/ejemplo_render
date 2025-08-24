@@ -1,103 +1,18 @@
-const express = require('express');
-const crypto = require('node:crypto');
-const movies = require('./movies.json');
-const cors = require('cors');
+import express, { json } from 'express';
+import { moviesRouter } from './routes/movies_route.js';
+import { corsMiddleware } from './middlewares/cors.js';
 
-const { validateMovie, validatePartialMovie } = require('./schemas/movies')
+// forma recomendada para importar JSON
+// import { createRequire } from 'node:module';
+// const require = createRequire(import.meta.url);
+// const movies = require('./movies.json');
 
 const app = express();
-app.use(express.json())
-app.use(cors({
-  origin: (origin, callback) => {
-      const ACCEPTED_ORIGINS = [
-        'http://localhost:8080',
-        'http://localhost:1234',
-        'http://192.168.1.103:8080'
-      ]
-      if(ACCEPTED_ORIGINS.includes(origin)){
-        return callback(null, true)
-      }
-
-      if(!origin){
-        return callback(null, true)
-      }
-
-      return callback(new Error('Not allowed by CORS'))
-    }
-  }))
+app.use(json())
+app.use(corsMiddleware())
 app.disable('x-powered-by')
 
-//Todos los recursos que sean movies, de identifican con /movies
-app.get('/movies', (req, res) => {
-
-  const { genre } = req.query
-  if(genre){
-    const filteredMovies = movies.filter((movie) => movie.genre.some((g) => g.toLowerCase() === genre.toLowerCase()))
-    return res.json(filteredMovies)
-  }
-  res.json(movies)
-});
-
-//Recuperar por id
-app.get('/movies/:id', (req, res) => { //path-to-regexp -> convierte el path en una expresion regular
-  const { id } = req.params;
-  const movie = movies.find((movie) => movie.id === id);
-  if(movie) res.json(movie);
-  res.status(404).json({ Error: 'Movie not found' });
-});
-
-app.post('/movies', (req, res) => {
-
-  const resultado = validateMovie(req.body);
-  
-  if(!resultado.success){
-    return res.status(400).json({ error: JSON.parse(resultado.error.message) })
-  }
-
-  // para bases de datos
-  const newMovie = {
-    id: crypto.randomUUID(),
-    ...resultado.data
-  }
-
-  // esto no es REST, porque estamos guardando el estado de la aplicacion en la memoria
-  movies.push(newMovie)
-  res.status(201).json(newMovie) // actualizar la cache del cliente
-})
-
-app.delete('/movies/:id', (req, res) => {
-  const { id } = req.params
-  const movieIndex = movies.filter((movie) => movie.id === id)
-
-  if(movieIndex === -1){
-    return res.status(404).json({ message: 'Movie not found' })
-  }
-
-  movies.splice(movieIndex, 1)
-
-  return res.json({ message: 'Movie deleted' })
-})
-
-//la id no se puede modificar porque no se está validando
-app.patch('/movies/:id', (req, res) => {
-  const { id } = req.params
-  const result = validatePartialMovie(req.body);
-
-  if(!result.success){
-    return res.status(400).json({ Error: JSON.parse(result.error.message) });
-  }
-  const movieIndex = movies.findIndex((movie) => movie.id === id)
-
-  if(!movieIndex === -1) res.status(404).json({ message: 'Movie not found' })
-  
-  const updateMovie = {
-    ...movies[movieIndex],
-    ...result.data
-  }
-
-  movies[movieIndex] = updateMovie
-  return res.json(updateMovie)
-})
+app.use('/movies', moviesRouter);
 
 const PORT = process.env.PORT ?? 1234
 
